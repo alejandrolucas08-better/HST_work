@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CheckCircle2, ClipboardCheck, Plus, ShieldCheck } from "lucide-react";
+import { DeliveryReceiptButton } from "@/components/audit/delivery-receipt";
 import { DevolucaoButton } from "@/components/forms/devolucao-button";
 import { DevolucaoStatusBadge, TrocaBadge } from "@/components/status-badges";
 import { buttonVariants } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { formatDateOnly, formatDateTime } from "@/lib/format";
+import { statusDevolucaoSchema } from "@/lib/validations";
 import { getEntregas } from "@/server/queries/entregas";
 import { cn } from "@/lib/utils";
 
@@ -31,11 +33,20 @@ const mensagens: Record<string, { tone: "success" | "error"; texto: string }> = 
 export default async function EntregasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; sucesso?: string; erro?: string }>;
+  searchParams: Promise<{
+    status?: string | string[];
+    sucesso?: string | string[];
+    erro?: string | string[];
+  }>;
 }) {
   const params = await searchParams;
-  const entregas = await getEntregas(params.status);
-  const mensagem = mensagens[params.sucesso ?? params.erro ?? ""];
+  const primeiro = (valor: string | string[] | undefined) =>
+    Array.isArray(valor) ? valor[0] : valor;
+  const statusParsed = statusDevolucaoSchema.safeParse(primeiro(params.status));
+  const status = statusParsed.success ? statusParsed.data : undefined;
+  const entregas = await getEntregas(status);
+  const mensagem =
+    mensagens[primeiro(params.sucesso) ?? primeiro(params.erro) ?? ""];
 
   return (
     <div className="space-y-5">
@@ -70,7 +81,7 @@ export default async function EntregasPage({
 
       <div className="flex gap-1 overflow-x-auto rounded-xl border border-line bg-surface p-1 shadow-sm">
         {filtros.map((filtro) => {
-          const ativo = (params.status ?? undefined) === filtro.value;
+          const ativo = (status ?? undefined) === filtro.value;
           const href = filtro.value ? `/entregas?status=${filtro.value}` : "/entregas";
           return (
             <Link
@@ -95,7 +106,7 @@ export default async function EntregasPage({
             icon={<ClipboardCheck className="h-6 w-6" />}
             title="Nenhuma entrega encontrada"
             description={
-              params.status
+              status
                 ? "Não há entregas com este status."
                 : "Registre a primeira entrega digital validada por PIN ou assinatura."
             }
@@ -133,9 +144,9 @@ export default async function EntregasPage({
                       <p className="text-xs text-subtle">{entrega.colaborador.setor}</p>
                     </td>
                     <td className="px-5 py-3">
-                      <p className="text-fg-soft">{entrega.epi.nome}</p>
+                      <p className="text-fg-soft">{entrega.epiNomeEntrega}</p>
                       <p className="font-mono text-[11px] text-subtle">
-                        CA {entrega.epi.numeroCA}
+                        CA {entrega.numeroCAEntrega}
                       </p>
                     </td>
                     <td className="px-5 py-3 font-semibold text-fg-soft">
@@ -159,26 +170,26 @@ export default async function EntregasPage({
                       <div className="space-y-1">
                         <span
                           className={
-                            entrega.pinValidado || entrega.assinaturaDigital
+                            entrega.pinValidado || entrega.temAssinatura
                               ? "inline-flex items-center gap-1 text-xs font-semibold text-brand-strong"
                               : "inline-flex items-center gap-1 text-xs font-semibold text-danger-strong"
                           }
                         >
                           <ShieldCheck className="h-3.5 w-3.5" />
                           {entrega.pinValidado
-                            ? entrega.assinaturaDigital
+                            ? entrega.temAssinatura
                               ? "PIN + assinatura"
                               : "PIN validado"
-                            : entrega.assinaturaDigital
+                            : entrega.temAssinatura
                               ? "Assinatura capturada"
                               : "Sem validação"}
                         </span>
                         <p className="text-[11px] text-subtle">
-                          {entrega.pinValidado && entrega.assinaturaDigital
+                          {entrega.pinValidado && entrega.temAssinatura
                             ? "Dupla validação"
                             : entrega.pinValidado
                               ? "Sem assinatura"
-                              : entrega.assinaturaDigital
+                              : entrega.temAssinatura
                                 ? "Assinatura em tela"
                                 : "Registro legado"}
                         </p>
@@ -188,16 +199,19 @@ export default async function EntregasPage({
                       <DevolucaoStatusBadge status={entrega.statusDevolucao} />
                     </td>
                     <td className="px-5 py-3">
-                      {entrega.statusDevolucao === "EM_USO" ? (
-                        <DevolucaoButton
-                          entregaId={entrega.id}
-                          colaboradorNome={entrega.colaborador.nome}
-                          epiNome={entrega.epi.nome}
-                          quantidade={entrega.quantidade}
-                        />
-                      ) : (
-                        <span className="text-xs text-subtle">Finalizada</span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <DeliveryReceiptButton entregaId={entrega.id} compact />
+                        {entrega.statusDevolucao === "EM_USO" ? (
+                          <DevolucaoButton
+                            entregaId={entrega.id}
+                            colaboradorNome={entrega.colaborador.nome}
+                            epiNome={entrega.epiNomeEntrega}
+                            quantidade={entrega.quantidade}
+                          />
+                        ) : (
+                          <span className="text-xs text-subtle">Finalizada</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

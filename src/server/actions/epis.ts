@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { ActionState } from "@/lib/action-state";
 import { requireSession } from "@/lib/auth";
-import { epiSchema, epiUpdateSchema, reposicaoEstoqueSchema } from "@/lib/validations";
+import { epiSchema, epiUpdateSchema, reposicaoEstoqueSchema, uuidSchema } from "@/lib/validations";
 import { isDomainError } from "@/server/services/erros";
 import {
   alterarAtivoEpi,
@@ -68,9 +68,9 @@ export async function atualizarEpiAction(
   formData: FormData,
 ): Promise<ActionState> {
   const session = await requireSession();
-  const id = String(formData.get("id") ?? "");
+  const id = uuidSchema.safeParse(String(formData.get("id") ?? ""));
 
-  if (!id) return { status: "error", message: "EPI inválido." };
+  if (!id.success) return { status: "error", message: "EPI inválido." };
 
   // Apenas ADMIN altera a situação (ativo/inativo) de um EPI.
   const ativoRaw = formData.get("ativo");
@@ -97,7 +97,7 @@ export async function atualizarEpiAction(
   }
 
   try {
-    await atualizarEpi(id, parsed.data, session.userId);
+    await atualizarEpi(id.data, parsed.data, session.userId);
   } catch (error) {
     return estadoDeErro(error);
   }
@@ -150,12 +150,12 @@ export async function alterarAtivoEpiAction(
     return { status: "error", message: "Apenas administradores podem arquivar ou reativar EPIs." };
   }
 
-  const id = String(formData.get("id") ?? "");
+  const id = uuidSchema.safeParse(String(formData.get("id") ?? ""));
   const ativo = formData.get("ativo") === "true";
-  if (!id) return { status: "error", message: "EPI inválido." };
+  if (!id.success) return { status: "error", message: "EPI inválido." };
 
   try {
-    await alterarAtivoEpi(id, ativo);
+    await alterarAtivoEpi(id.data, ativo);
   } catch (error) {
     return estadoDeErro(error);
   }

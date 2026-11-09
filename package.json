@@ -9,8 +9,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "postbuild": "npm run security:secrets",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "security:secrets": "node scripts/check-secrets.mjs",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",

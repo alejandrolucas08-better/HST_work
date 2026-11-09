@@ -15,6 +15,7 @@ digital com PIN/assinatura e alertas de troca e vencimento.
 - [Funcionalidades](#funcionalidades)
 - [Regras de negócio](#regras-de-negócio)
 - [Arquitetura](#arquitetura)
+- [Auditoria, histórico e relatórios](#auditoria-histórico-e-relatórios)
 - [Interface, temas e acessibilidade](#interface-temas-e-acessibilidade)
 - [Como rodar localmente](#como-rodar-localmente)
 - [Credenciais de demonstração](#credenciais-de-demonstração)
@@ -40,6 +41,8 @@ digital com PIN/assinatura e alertas de troca e vencimento.
   trocas de EPI próximas ou atrasadas.
 - **Devolução** de EPI com opção de reintegrar ao estoque (sempre auditada).
 - **Dashboard** com indicadores e listas de ação para o almoxarife.
+- **Auditoria**: ficha individual de EPI em PDF, relatório de conformidade com
+  exportação PDF/CSV e modal de comprovante com a assinatura digital armazenada.
 - Interface em português, com foco em uso em tablet.
 
 ## Regras de negócio
@@ -64,23 +67,26 @@ src/
 ├─ app/
 │  ├─ (app)/                 # Área autenticada (layout valida a sessão)
 │  │  ├─ dashboard/
-│  │  ├─ colaboradores/      # Lista + detalhe
+│  │  ├─ colaboradores/      # Lista + detalhe/ficha
 │  │  ├─ epis/
-│  │  └─ entregas/           # Lista + nova entrega
-│  ├─ api/                   # API REST (JSON)
+│  │  ├─ entregas/           # Lista + nova entrega
+│  │  └─ relatorios/         # Conformidade com filtros e exportações
+│  ├─ api/                   # API REST (JSON, PDF e CSV)
 │  └─ login/
-├─ components/               # UI, formulários, assinatura, badges
+├─ components/               # UI, formulários, assinatura, badges, comprovante
 ├─ lib/                      # auth, sessão JWT, validações Zod, CPF, formatação
 └─ server/
    ├─ actions/               # Server Actions (formulários)
-   ├─ queries/               # Consultas de leitura
+   ├─ queries/               # Consultas de leitura (inclui relatórios)
    ├─ services/              # Regras de negócio (fonte única)
+   ├─ pdf/                   # Renderizador pdf-lib (builder, ficha, relatório)
+   ├─ csv/                   # Exportação CSV pt-BR
    ├─ http.ts                # Helpers de auth/erro/resposta da API
    └─ selects.ts             # Projeções que nunca expõem hashes
 prisma/
 ├─ schema.prisma
 ├─ seed.ts
-└─ migrations/0001_init/
+└─ migrations/               # 0001_init, 0002_auditoria_relatorios
 ```
 
 A lógica de negócio fica em `src/server/services` e é reutilizada tanto pelas
@@ -106,7 +112,55 @@ Códigos principais: `CREDENCIAIS_INVALIDAS`, `MUITAS_TENTATIVAS`,
 `COLABORADOR_NAO_ENCONTRADO`, `COLABORADOR_INATIVO`, `CPF_DUPLICADO`,
 `EPI_NAO_ENCONTRADO`, `CA_DUPLICADO`, `CA_VENCIDO`, `ESTOQUE_INSUFICIENTE`,
 `PIN_INCORRETO`, `VALIDACAO_DIGITAL_AUSENTE`, `ENTREGA_NAO_ENCONTRADA`,
-`ENTREGA_JA_FINALIZADA`, `SEM_PERMISSAO`, `NAO_AUTENTICADO`.
+`ENTREGA_JA_FINALIZADA`, `SEM_PERMISSAO`, `NAO_AUTENTICADO`, `FORMATO_INVALIDO`.
+
+## Auditoria, histórico e relatórios
+
+### Snapshot histórico da entrega
+
+Cada `Entrega` grava `epiNomeEntrega`, `numeroCAEntrega` e `validadeCAEntrega` no
+momento do registro. Renomear o EPI, trocar o número do CA ou renovar a validade
+**não altera** documentos já emitidos. A migração `0002_auditoria_relatorios`
+backfill esses campos a partir do cadastro atual para entregas antigas.
+
+### Ficha Individual do Colaborador
+
+- Página `/colaboradores/[id]`: histórico completo com data, quantidade, CA e
+  validade **na época da entrega**, validação digital e status.
+- Botão **Ficha em PDF** (também no comprovante) chama
+  `GET /api/colaboradores/[id]/ficha-epi`.
+- O PDF inclui cabeçalho institucional, dados da empresa, identificação do
+  colaborador, tabela histórica, termos legais de responsabilidade (art. 166 da
+  CLT e NR-6), assinatura do colaborador e anexo com cada assinatura capturada.
+
+### Relatório de Conformidade
+
+- Página `/relatorios`: filtros por **período** (data da entrega), **setor** e
+  **status atual do CA** (válido, a vencer em 30 dias ou vencido).
+- Exportação: `GET /api/relatorios/conformidade?formato=pdf|csv` com os mesmos
+  parâmetros da tela (`inicio`, `fim`, `setor`, `caStatus`).
+- CSV em `;` com BOM UTF-8 (abre direto no Excel pt-BR); PDF A4 paisagem com
+  resumo executivo, tabela paginada e termos legais.
+- O status do CA usa a validade **atual** do EPI; a tabela também mostra o CA e a
+  validade congelados na entrega.
+
+### Comprovante de Entrega
+
+- Botão **Comprovante** nas listas de entregas e no histórico do colaborador.
+- O modal busca `GET /api/entregas/[id]` sob demanda (lazy), evitando carregar
+  todas as assinaturas Base64 no HTML da listagem. Exibe dados do ato, CA na
+  entrega, validação (PIN/assinatura) e a imagem da assinatura.
+
+### Renderizador de PDF
+
+- `src/server/pdf/builder.ts`: cabeçalho institucional repetido, tipografia,
+  quebra de linha, tabelas com cabeçalho reemitido por página, caixas de dados,
+  assinaturas PNG/JPEG e rodapé com `Página X de Y`.
+- `src/server/pdf/ficha.ts` e `src/server/pdf/relatorio.ts`: composição dos dois
+  documentos, com comentários explicando cada bloco.
+- Assinaturas SVG são exibidas na interface, mas ignoradas no PDF (pdf-lib não
+  rasteriza SVG); PNG/JPEG são embutidos.
+- Dados institucionais vêm de `COMPANY_*` no `.env` (ver `.env.example`).
 
 ## Interface, temas e acessibilidade
 
@@ -241,6 +295,7 @@ usam o envelope `{ "ok": true, "data": ... }`.
 | `GET` | `/api/colaboradores/[id]` | Detalhe com histórico de entregas. |
 | `PATCH` | `/api/colaboradores/[id]` | Atualiza dados (PIN vazio mantém o atual). |
 | `DELETE` | `/api/colaboradores/[id]` | Arquiva (desliga) — **somente ADMIN**. |
+| `GET` | `/api/colaboradores/[id]/ficha-epi` | Ficha Individual de EPI em PDF. |
 
 ### EPIs
 
@@ -275,6 +330,15 @@ Exemplo de entrega:
 
 O campo `assinaturaDigital` é opcional quando o PIN é válido; o `pin` é opcional
 quando há assinatura.
+
+### Relatórios
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| `GET` | `/api/relatorios/conformidade?formato=pdf\|csv&inicio=&fim=&setor=&caStatus=` | Exporta o relatório de conformidade (PDF ou CSV). |
+
+`caStatus` aceita `TODOS`, `VALIDO`, `A_VENCER` ou `VENCIDO` (validade atual do EPI).
+O período considera a data da entrega; `fim` é inclusivo.
 
 ### Alertas
 
@@ -327,15 +391,37 @@ o cliente nunca é a única barreira de autorização.
 
 ## Segurança
 
-- Senhas e PINs com bcrypt (custo 12); nunca há texto puro no banco nem em respostas.
+- Senhas e PINs com **bcrypt (custo 12)**; nunca há texto puro no banco nem em respostas.
 - Cookies de sessão `httpOnly`, `sameSite=lax` e `secure` em produção.
-- Rate limit de login por IP + e-mail (configurável por `AUTH_LOGIN_MAX_ATTEMPTS` e
-  `AUTH_LOGIN_WINDOW_MINUTES`). Em cenário multi-instância, troque o armazenamento em
-  memória por Redis/Upstash — a interface em `src/lib/rate-limit.ts` permanece a mesma.
-- Validação de entrada com Zod em todas as rotas e Server Actions.
-- Projeções `src/server/selects.ts` impedem vazamento de `pinHash`/`senhaHash`.
+- **Rate limit em camadas**: login por e-mail+IP (`AUTH_LOGIN_MAX_ATTEMPTS`), login por
+  IP (`AUTH_LOGIN_IP_MAX_ATTEMPTS`) e PIN de entrega por usuário+colaborador
+  (`AUTH_PIN_MAX_ATTEMPTS`/`AUTH_PIN_WINDOW_MINUTES`). Respostas `429` incluem
+  `Retry-After`. Em cenário multi-instância, troque o armazenamento em memória por
+  Redis/Upstash — a interface em `src/lib/rate-limit.ts` permanece a mesma.
+- **Validação de entrada estrita com Zod** em todas as rotas e Server Actions:
+  objetos `.strict()` (sem campos desconhecidos), UUIDs validados antes do Prisma,
+  CPF com dígitos verificadores, limites de tamanho, bloqueio de caracteres de
+  controle/`<>` e rejeição de **parâmetros repetidos** na querystring
+  (`PARAMETRO_DUPLICADO`). As consultas são parametrizadas pelo Prisma, o que impede
+  injeção de SQL; a saída é escapada pelo React, o que impede XSS refletido/armazenado.
+- **Assinaturas digitais validadas** em `src/lib/signature.ts`: somente PNG/JPEG reais
+  (magic bytes + MIME), limite de 512 KiB decodificados, dimensões máximas e
+  normalização canônica. SVG e Base64 malicioso são rejeitados. A assinatura não é
+  devolvida em listagens; o comprovante completo só é carregado em
+  `/api/entregas/[id]` (autenticado) e o PDF só embute imagens validadas.
+- **Cabeçalhos OWASP** em `next.config.ts`: CSP, HSTS (produção), `X-Frame-Options:
+  DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`,
+  COOP/CORP e `Cache-Control: no-store` em `/api/*`.
+- **CORS restritivo** em `src/proxy.ts`: same-origin por padrão; origens externas
+  somente via `APP_URL`/`CORS_ALLOWED_ORIGINS`. Preflight não autorizado recebe `403`.
+- Projeções `src/server/selects.ts` impedem vazamento de `pinHash`/`senhaHash` e de
+  assinaturas em listagens.
 - Erros internos não expõem stack trace ao cliente.
 - Exclusões são lógicas para preservar rastreabilidade de SST.
+- **Verificação de segredos** após o build: `npm run security:secrets` (executado
+  automaticamente pelo `postbuild`) falha se credenciais de banco, `AUTH_SECRET`,
+  chaves privadas ou variáveis `NEXT_PUBLIC_*` sensíveis aparecerem em `.next/static`,
+  e também se um arquivo `.env` real estiver versionado no Git.
 
 ---
 

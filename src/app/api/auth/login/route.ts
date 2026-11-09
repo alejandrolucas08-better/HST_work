@@ -1,7 +1,9 @@
 import { createSession } from "@/lib/auth";
 import {
   chaveLogin,
+  chaveLoginIp,
   configLimiteLogin,
+  configLimiteLoginIp,
   consultarLimite,
   ipDaRequisicao,
   limparLimite,
@@ -27,21 +29,33 @@ export async function POST(request: Request) {
     }
 
     const ip = ipDaRequisicao(request.headers);
-    const chave = chaveLogin(parsed.data.email, ip);
-    const { maxTentativas, janelaMs } = configLimiteLogin();
-    const limite = consultarLimite(chave, maxTentativas, janelaMs);
+    const chaveEmail = chaveLogin(parsed.data.email, ip);
+    const chaveIp = chaveLoginIp(ip);
+    const configEmail = configLimiteLogin();
+    const configIp = configLimiteLoginIp();
+    const limiteEmail = consultarLimite(
+      chaveEmail,
+      configEmail.maxTentativas,
+      configEmail.janelaMs,
+    );
+    const limiteIp = consultarLimite(chaveIp, configIp.maxTentativas, configIp.janelaMs);
+    const retryAfterSeconds = Math.max(
+      limiteEmail.retryAfterSeconds,
+      limiteIp.retryAfterSeconds,
+    );
 
-    if (!limite.permitido) {
+    if (!limiteEmail.permitido || !limiteIp.permitido) {
       throw new DomainError(
         "MUITAS_TENTATIVAS",
-        `Muitas tentativas de login. Tente novamente em ${limite.retryAfterSeconds}s.`,
-        { status: 429 },
+        `Muitas tentativas de login. Tente novamente em ${retryAfterSeconds}s.`,
+        { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } },
       );
     }
 
     try {
       const usuario = await autenticarUsuario(parsed.data.email, parsed.data.senha);
-      limparLimite(chave);
+      limparLimite(chaveEmail);
+      limparLimite(chaveIp);
       await createSession({
         userId: usuario.id,
         nome: usuario.nome,
@@ -56,7 +70,8 @@ export async function POST(request: Request) {
       });
     } catch (error) {
       if (isDomainError(error) && error.code === "CREDENCIAIS_INVALIDAS") {
-        registrarFalha(chave, janelaMs);
+        registrarFalha(chaveEmail, configEmail.janelaMs);
+        registrarFalha(chaveIp, configIp.janelaMs);
       }
       throw error;
     }

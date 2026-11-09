@@ -2,13 +2,30 @@ import bcrypt from "bcryptjs";
 import type { SessionUser } from "@/lib/session";
 import { addDaysUtc, todayUtcDate } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
+import {
+  chavePin,
+  configLimitePin,
+  consultarLimite,
+  limparLimite,
+  registrarFalha,
+} from "@/lib/rate-limit";
+import { normalizarAssinatura } from "@/lib/signature";
 import type { EntregaInput } from "@/lib/validations";
 import { DomainError } from "./erros";
 
 export async function registrarEntrega(input: EntregaInput, session: SessionUser) {
   const { colaboradorId, epiId, quantidade, observacoes } = input;
   const pin = input.pin?.trim() ?? "";
-  const assinatura = input.assinaturaDigital || null;
+  // O schema já normaliza, mas repetimos a validação no serviço (defesa em
+  // profundidade): nenhum caminho de escrita grava assinatura não suportada.
+  const assinatura = normalizarAssinatura(input.assinaturaDigital);
+  if (input.assinaturaDigital && !assinatura) {
+    throw new DomainError(
+      "ASSINATURA_INVALIDA",
+      "A assinatura digital é inválida. Capture novamente usando PNG ou JPEG.",
+      { status: 422, fieldErrors: { assinaturaDigital: ["Assinatura inválida."] } },
+    );
+  }
 
   const [colaborador, epi] = await Promise.all([
     prisma.colaborador.findUnique({
@@ -69,13 +86,34 @@ export async function registrarEntrega(input: EntregaInput, session: SessionUser
 
   let pinValidado = false;
   if (pin) {
+    // Brute force de PIN: limita por usuário autenticado + colaborador alvo.
+    // A checagem ocorre antes do bcrypt.compare para não gastar CPU com
+    // tentativas já bloqueadas.
+    const config = configLimitePin();
+    const chave = chavePin(session.userId, colaborador.id);
+    const limite = consultarLimite(chave, config.maxTentativas, config.janelaMs);
+
+    if (!limite.permitido) {
+      throw new DomainError(
+        "MUITAS_TENTATIVAS",
+        `Muitas tentativas de PIN. Tente novamente em ${limite.retryAfterSeconds}s.`,
+        {
+          status: 429,
+          headers: { "Retry-After": String(limite.retryAfterSeconds) },
+          fieldErrors: { pin: ["Muitas tentativas de PIN. Aguarde e tente novamente."] },
+        },
+      );
+    }
+
     const confere = await bcrypt.compare(pin, colaborador.pinHash);
     if (!confere) {
+      registrarFalha(chave, config.janelaMs);
       throw new DomainError("PIN_INCORRETO", "PIN incorreto. A entrega não foi registrada.", {
         status: 422,
         fieldErrors: { pin: ["PIN inválido."] },
       });
     }
+    limparLimite(chave);
     pinValidado = true;
   }
 
@@ -207,5 +245,11 @@ export async function obterEntrega(id: string) {
       status: 404,
     });
   }
-  return entrega;
+
+  // Só devolve assinaturas canônicas (PNG/JPEG) para a interface. Registros
+  // antigos em SVG ou corrompidos viram null e não são renderizados.
+  return {
+    ...entrega,
+    assinaturaDigital: normalizarAssinatura(entrega.assinaturaDigital),
+  };
 }

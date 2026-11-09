@@ -1,7 +1,14 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { epiSchema } from "@/lib/validations";
-import { exigirSessaoApi, lerJson, respostaErro, respostaOk } from "@/server/http";
+import { epiSchema, parametroBooleanoSchema, termoBuscaSchema } from "@/lib/validations";
+import {
+  exigirSessaoApi,
+  lerJson,
+  parametroUnico,
+  respostaErro,
+  respostaOk,
+  validarParametrosUnicos,
+} from "@/server/http";
 import { epiResumoSelect } from "@/server/selects";
 import { criarEpi } from "@/server/services/epis";
 
@@ -12,9 +19,15 @@ export async function GET(request: Request) {
     await exigirSessaoApi();
 
     const { searchParams } = new URL(request.url);
-    const q = searchParams.get("q")?.trim();
-    const incluirInativos = searchParams.get("incluirInativos") === "true";
-    const somenteEstoqueBaixo = searchParams.get("estoqueBaixo") === "true";
+    validarParametrosUnicos(searchParams, ["q", "incluirInativos", "estoqueBaixo"]);
+
+    const q = termoBuscaSchema.parse(parametroUnico(searchParams, "q"));
+    const incluirInativos = parametroBooleanoSchema.parse(
+      parametroUnico(searchParams, "incluirInativos"),
+    );
+    const somenteEstoqueBaixo = parametroBooleanoSchema.parse(
+      parametroUnico(searchParams, "estoqueBaixo"),
+    );
 
     const where: Prisma.EpiWhereInput = {};
     if (!incluirInativos) where.ativo = true;

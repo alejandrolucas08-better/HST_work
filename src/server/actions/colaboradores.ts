@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { ActionState } from "@/lib/action-state";
 import { requireSession } from "@/lib/auth";
-import { colaboradorSchema, colaboradorUpdateSchema } from "@/lib/validations";
+import { colaboradorSchema, colaboradorUpdateSchema, uuidSchema } from "@/lib/validations";
 import {
   alterarStatusColaborador,
   arquivarColaborador,
@@ -67,8 +67,8 @@ export async function atualizarColaboradorAction(
   formData: FormData,
 ): Promise<ActionState> {
   const session = await requireSession();
-  const id = String(formData.get("id") ?? "");
-  if (!id) return { status: "error", message: "Colaborador inválido." };
+  const id = uuidSchema.safeParse(String(formData.get("id") ?? ""));
+  if (!id.success) return { status: "error", message: "Colaborador inválido." };
 
   const status = String(formData.get("status") ?? "ATIVO");
   if (status === "DESLIGADO" && session.perfil !== "ADMIN") {
@@ -98,7 +98,7 @@ export async function atualizarColaboradorAction(
   }
 
   try {
-    await atualizarColaborador(id, parsed.data);
+    await atualizarColaborador(id.data, parsed.data);
   } catch (error) {
     return estadoDeErro(error);
   }
@@ -110,13 +110,13 @@ export async function atualizarColaboradorAction(
 export async function alterarStatusColaboradorAction(formData: FormData): Promise<void> {
   const session = await requireSession();
 
-  const id = String(formData.get("id") ?? "");
+  const id = uuidSchema.safeParse(String(formData.get("id") ?? ""));
   const status = String(formData.get("status") ?? "");
-  if (!id || !["ATIVO", "INATIVO", "DESLIGADO"].includes(status)) return;
+  if (!id.success || !["ATIVO", "INATIVO", "DESLIGADO"].includes(status)) return;
   if (status === "DESLIGADO" && session.perfil !== "ADMIN") return;
 
   await alterarStatusColaborador(
-    id,
+    id.data,
     status as "ATIVO" | "INATIVO" | "DESLIGADO",
   );
   revalidarColaboradores();
@@ -131,11 +131,11 @@ export async function arquivarColaboradorAction(
     return { status: "error", message: "Apenas administradores podem arquivar colaboradores." };
   }
 
-  const id = String(formData.get("id") ?? "");
-  if (!id) return { status: "error", message: "Colaborador inválido." };
+  const id = uuidSchema.safeParse(String(formData.get("id") ?? ""));
+  if (!id.success) return { status: "error", message: "Colaborador inválido." };
 
   try {
-    await arquivarColaborador(id);
+    await arquivarColaborador(id.data);
   } catch (error) {
     return estadoDeErro(error);
   }

@@ -9,6 +9,7 @@ import {
 } from "pdf-lib";
 import { APP_NAME } from "@/lib/constants";
 import { formatDateTime } from "@/lib/format";
+import { assinaturaParaPdf } from "@/lib/signature";
 import { EMPRESA, RODAPE_DOCUMENTO, enderecoEmpresa } from "./empresa";
 
 /**
@@ -618,6 +619,29 @@ export class PdfBuilder {
     return Boolean(imagem);
   }
 
+  /**
+   * Linha de assinatura em branco (para coleta manual em papel quando não há
+   * assinatura digital armazenada ou para a assinatura do responsável).
+   */
+  linhaAssinatura(legenda: string, altura = 42) {
+    this.garantirEspaco(altura + 20);
+    const topo = this.y;
+    this.page.drawLine({
+      start: { x: MARGEM + 16, y: topo - altura },
+      end: { x: this.pageWidth - MARGEM - 16, y: topo - altura },
+      thickness: 0.8,
+      color: COR.ink,
+    });
+    this.page.drawText(sanitizar(legenda), {
+      x: MARGEM,
+      y: topo - altura - 11,
+      size: 6.8,
+      font: this.font,
+      color: COR.muted,
+    });
+    this.y = topo - altura - 20;
+  }
+
   // ---------------------------------------------------------------------------
   // Finalização
   // ---------------------------------------------------------------------------
@@ -661,20 +685,22 @@ export class PdfBuilder {
   }
 }
 
-/** Decodifica um data URL PNG/JPEG em imagem embutível. Retorna null se inválido. */
+/**
+ * Decodifica um data URL PNG/JPEG em imagem embutível. Retorna null se inválido.
+ * A validação (magic bytes, tamanho e dimensões) fica centralizada em
+ * `src/lib/signature.ts`; nada que não seja PNG/JPEG real chega ao pdf-lib.
+ */
 export async function carregarImagem(
   doc: PDFDocument,
   dataUrl: string | null | undefined,
 ): Promise<PDFImage | null> {
-  if (!dataUrl) return null;
-  const match = /^data:image\/(png|jpe?g);base64,(.+)$/i.exec(dataUrl.trim());
-  if (!match) return null;
+  const assinatura = assinaturaParaPdf(dataUrl);
+  if (!assinatura) return null;
 
   try {
-    const bytes = Buffer.from(match[2], "base64");
-    return match[1].toLowerCase() === "png"
-      ? await doc.embedPng(bytes)
-      : await doc.embedJpg(bytes);
+    return assinatura.mime === "image/png"
+      ? await doc.embedPng(assinatura.bytes)
+      : await doc.embedJpg(assinatura.bytes);
   } catch {
     // Assinatura corrompida não deve impedir a emissão do documento.
     return null;

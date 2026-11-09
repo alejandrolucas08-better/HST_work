@@ -5,10 +5,12 @@ import {
   BriefcaseBusiness,
   Building2,
   ClipboardCheck,
+  FileDown,
   LockKeyhole,
   Plus,
   ShieldCheck,
 } from "lucide-react";
+import { DeliveryReceiptButton } from "@/components/audit/delivery-receipt";
 import {
   ArquivarColaboradorButton,
   EditarColaboradorButton,
@@ -57,6 +59,15 @@ export default async function ColaboradorDetailPage({
         description={`${colaborador.cargo} · ${colaborador.setor}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <a
+              href={`/api/colaboradores/${colaborador.id}/ficha-epi`}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <FileDown className="h-4 w-4" />
+              Ficha em PDF
+            </a>
             <EditarColaboradorButton colaborador={dadosFormulario} podeDesligar={isAdmin} />
             {isAdmin && colaborador.status !== "DESLIGADO" ? (
               <ArquivarColaboradorButton colaborador={dadosFormulario} />
@@ -130,14 +141,18 @@ export default async function ColaboradorDetailPage({
                   <th className="px-5 py-3 font-semibold">Troca prevista</th>
                   <th className="px-5 py-3 font-semibold">Validação</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
+                  <th className="px-5 py-3 font-semibold">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {colaborador.entregas.map((entrega) => (
                   <tr key={entrega.id}>
                     <td className="px-5 py-3">
-                      <p className="font-medium text-fg">{entrega.epi.nome}</p>
-                      <p className="text-xs text-subtle">CA {entrega.epi.numeroCA}</p>
+                      <p className="font-medium text-fg">{entrega.epiNomeEntrega}</p>
+                      <p className="text-xs text-subtle">
+                        CA {entrega.numeroCAEntrega} · válido até{" "}
+                        {formatDateOnly(entrega.validadeCAEntrega)}
+                      </p>
                     </td>
                     <td className="px-5 py-3 text-muted">{entrega.quantidade}</td>
                     <td className="px-5 py-3 text-muted">
@@ -149,11 +164,14 @@ export default async function ColaboradorDetailPage({
                     <td className="px-5 py-3">
                       <ValidacaoDigital
                         pinValidado={entrega.pinValidado}
-                        assinatura={Boolean(entrega.assinaturaDigital)}
+                        assinatura={entrega.temAssinatura}
                       />
                     </td>
                     <td className="px-5 py-3">
                       <DevolucaoStatusBadge status={entrega.statusDevolucao} />
+                    </td>
+                    <td className="px-5 py-3">
+                      <DeliveryReceiptButton entregaId={entrega.id} compact />
                     </td>
                   </tr>
                 ))}

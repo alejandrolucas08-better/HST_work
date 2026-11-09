@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { exigirSessaoApi, respostaErro, respostaOk } from "@/server/http";
+import {
+  exigirSessaoApi,
+  parametroUnico,
+  respostaErro,
+  respostaOk,
+  validarParametrosUnicos,
+} from "@/server/http";
 import { listarTrocasProximas } from "@/server/services/alertas";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +20,9 @@ export async function GET(request: Request) {
   try {
     await exigirSessaoApi();
     const { searchParams } = new URL(request.url);
-    const dias = diasSchema.parse(searchParams.get("dias") ?? undefined);
+    validarParametrosUnicos(searchParams, ["dias"]);
+
+    const dias = diasSchema.parse(parametroUnico(searchParams, "dias") ?? undefined);
     const itens = await listarTrocasProximas(dias);
 
     return respostaOk({

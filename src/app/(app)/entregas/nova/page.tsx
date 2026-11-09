@@ -5,6 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { isoDate, todayUtcDate } from "@/lib/format";
+import { uuidSchema } from "@/lib/validations";
 import { getNovaEntregaData } from "@/server/queries/entregas";
 
 export const metadata = { title: "Nova entrega" };
@@ -12,12 +13,15 @@ export const metadata = { title: "Nova entrega" };
 export default async function NovaEntregaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ colaborador?: string }>;
+  searchParams: Promise<{ colaborador?: string | string[] }>;
 }) {
   const [{ colaborador }, data] = await Promise.all([searchParams, getNovaEntregaData()]);
-  const colaboradorInicial = data.colaboradores.some((item) => item.id === colaborador)
-    ? colaborador
-    : undefined;
+  const candidato = Array.isArray(colaborador) ? colaborador[0] : colaborador;
+  const idParsed = uuidSchema.safeParse(candidato);
+  const colaboradorInicial =
+    idParsed.success && data.colaboradores.some((item) => item.id === idParsed.data)
+      ? idParsed.data
+      : undefined;
 
   const semDados = data.colaboradores.length === 0 || data.epis.length === 0;
 

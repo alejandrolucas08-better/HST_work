@@ -40,6 +40,12 @@ export function CaValidadeBadge({ dataValidadeCA }: { dataValidadeCA: Date | str
   return <Badge tone="emerald">CA válido</Badge>;
 }
 
+/** Badge do status de conformidade já calculado (relatórios/exportações). */
+export function StatusCaBadge({ status }: { status: StatusCA }) {
+  const tone = status === "VENCIDO" ? "rose" : status === "A_VENCER" ? "amber" : "emerald";
+  return <Badge tone={tone}>{STATUS_CA_LABELS[status]}</Badge>;
+}
+
 export function EstoqueBadge({
   quantidade,
   minimo,

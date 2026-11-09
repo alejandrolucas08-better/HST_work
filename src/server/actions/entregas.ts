@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { ActionState } from "@/lib/action-state";
 import { requireSession } from "@/lib/auth";
-import { entregaSchema } from "@/lib/validations";
+import { entregaSchema, uuidSchema } from "@/lib/validations";
 import { isDomainError } from "@/server/services/erros";
 import { registrarDevolucao, registrarEntrega } from "@/server/services/entregas";
 
@@ -58,12 +58,12 @@ export async function registrarEntregaAction(
 export async function registrarDevolucaoAction(formData: FormData): Promise<void> {
   const session = await requireSession();
 
-  const entregaId = String(formData.get("entregaId") ?? "");
+  const entregaId = uuidSchema.safeParse(String(formData.get("entregaId") ?? ""));
   const reintegrarEstoque = formData.get("reintegrarEstoque") === "on";
-  if (!entregaId) redirect("/entregas?erro=ENTREGA_NAO_ENCONTRADA");
+  if (!entregaId.success) redirect("/entregas?erro=ENTREGA_NAO_ENCONTRADA");
 
   try {
-    await registrarDevolucao(entregaId, reintegrarEstoque, session);
+    await registrarDevolucao(entregaId.data, reintegrarEstoque, session);
   } catch (error) {
     if (isDomainError(error)) {
       redirect(`/entregas?erro=${encodeURIComponent(error.code)}`);

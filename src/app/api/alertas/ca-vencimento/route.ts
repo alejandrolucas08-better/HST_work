@@ -1,10 +1,16 @@
 import { z } from "zod";
-import { exigirSessaoApi, respostaErro, respostaOk } from "@/server/http";
+import {
+  exigirSessaoApi,
+  parametroUnico,
+  respostaErro,
+  respostaOk,
+  validarParametrosUnicos,
+} from "@/server/http";
 import { listarCasAVencer } from "@/server/services/alertas";
 
 export const dynamic = "force-dynamic";
 
-const janelaSchema = z.union([z.literal(30), z.literal(60), z.literal(90)]).catch(90);
+const janelaSchema = z.union([z.literal(30), z.literal(60), z.literal(90)]);
 
 /**
  * GET /api/alertas/ca-vencimento?janela=30|60|90
@@ -14,7 +20,9 @@ export async function GET(request: Request) {
   try {
     await exigirSessaoApi();
     const { searchParams } = new URL(request.url);
-    const janela = janelaSchema.parse(Number(searchParams.get("janela") ?? 90));
+    validarParametrosUnicos(searchParams, ["janela"]);
+
+    const janela = janelaSchema.parse(Number(parametroUnico(searchParams, "janela") ?? 90));
     const resultado = await listarCasAVencer(janela);
     return respostaOk(resultado);
   } catch (error) {

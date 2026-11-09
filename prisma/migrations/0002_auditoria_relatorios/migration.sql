@@ -28,6 +28,5 @@ ALTER TABLE "entregas"
   ALTER COLUMN "numeroCAEntrega" SET NOT NULL,
   ALTER COLUMN "validadeCAEntrega" SET NOT NULL;
 
--- 4. Índices para relatórios por período e status de CA.
-CREATE INDEX "entregas_dataEntrega_idx" ON "entregas"("dataEntrega");
+-- 4. Índice para relatórios por validade do CA na entrega (auditoria histórica).
 CREATE INDEX "entregas_validadeCAEntrega_idx" ON "entregas"("validadeCAEntrega");

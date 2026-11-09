@@ -250,15 +250,30 @@ async function seedEntregas(
   ];
 
   for (const exemplo of exemplos) {
+    const colaborador = colaboradores[exemplo.colaboradorCpf];
+    const epi = epis[exemplo.epiCA];
+    if (!colaborador || !epi) continue;
+
+    // Snapshot do EPI/CA no momento da entrega (auditoria histórica).
+    const snapshot = {
+      epiNomeEntrega: epi.nome,
+      numeroCAEntrega: epi.numeroCA,
+      validadeCAEntrega: epi.dataValidadeCA,
+      assinaturaDigital: exemplo.comAssinatura ? ASSINATURA_EXEMPLO : null,
+      pinValidado: !exemplo.comAssinatura,
+    } as const;
+
     const existente = await prisma.entrega.findFirst({
       where: { observacoes: exemplo.observacoes },
       select: { id: true },
     });
-    if (existente) continue;
 
-    const colaborador = colaboradores[exemplo.colaboradorCpf];
-    const epi = epis[exemplo.epiCA];
-    if (!colaborador || !epi) continue;
+    // Seed idempotente: se a entrega já existe, apenas repara os snapshots e a
+    // assinatura de demonstração (útil ao migrar um banco já populado).
+    if (existente) {
+      await prisma.entrega.update({ where: { id: existente.id }, data: snapshot });
+      continue;
+    }
 
     await prisma.$transaction(async (tx) => {
       const entrega = await tx.entrega.create({
@@ -269,12 +284,7 @@ async function seedEntregas(
           quantidade: exemplo.quantidade,
           dataEntrega: exemplo.dataEntrega,
           dataPrevistaTroca: exemplo.dataPrevistaTroca,
-          // Snapshot do EPI/CA no momento da entrega (auditoria histórica).
-          epiNomeEntrega: epi.nome,
-          numeroCAEntrega: epi.numeroCA,
-          validadeCAEntrega: epi.dataValidadeCA,
-          assinaturaDigital: exemplo.comAssinatura ? ASSINATURA_EXEMPLO : null,
-          pinValidado: !exemplo.comAssinatura,
+          ...snapshot,
           statusDevolucao: exemplo.statusDevolucao,
           observacoes: exemplo.observacoes,
         },

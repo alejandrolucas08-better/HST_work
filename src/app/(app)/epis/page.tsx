@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireSession } from "@/lib/auth";
 import { formatDateOnly, formatQuantity } from "@/lib/format";
+import { termoBuscaSchema } from "@/lib/validations";
 import { getEpis } from "@/server/queries/epis";
 
 export const metadata = { title: "EPIs" };
@@ -16,10 +17,11 @@ export const metadata = { title: "EPIs" };
 export default async function EpisPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string | string[] }>;
 }) {
   const [{ q }, session] = await Promise.all([searchParams, requireSession()]);
-  const epis = await getEpis(q);
+  const termo = termoBuscaSchema.safeParse(Array.isArray(q) ? q[0] : q);
+  const epis = await getEpis(termo.success ? termo.data : undefined);
   const isAdmin = session.perfil === "ADMIN";
 
   return (
@@ -42,7 +44,7 @@ export default async function EpisPage({
         <div className="flex flex-col gap-3 border-b border-line p-4 sm:flex-row sm:items-center sm:justify-between">
           <SearchForm
             action="/epis"
-            defaultValue={q}
+            defaultValue={termo.success ? termo.data : undefined}
             placeholder="Buscar por nome ou número do CA..."
           />
           <Badge tone="slate">

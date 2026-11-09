@@ -1,19 +1,19 @@
 import type { SessionUser } from "@/lib/session";
 
 /**
- * Rate limit em memória, por instância. Protege o login contra tentativas
- * automatizadas no MVP. Em produção multicliente, troque por Redis/Upstash
- * (a interface abaixo permanece a mesma).
+ * Rate limit em memória, por instância. Protege login e validação de PIN contra
+ * tentativas automatizadas no MVP. Em produção multicliente, troque por
+ * Redis/Upstash (a interface abaixo permanece a mesma).
  */
 type Bucket = { count: number; resetAt: number };
 
 const globalForRateLimit = globalThis as unknown as {
-  __hstLoginBuckets?: Map<string, Bucket>;
+  __hstRateLimitBuckets?: Map<string, Bucket>;
 };
 
 const buckets =
-  globalForRateLimit.__hstLoginBuckets ??
-  (globalForRateLimit.__hstLoginBuckets = new Map<string, Bucket>());
+  globalForRateLimit.__hstRateLimitBuckets ??
+  (globalForRateLimit.__hstRateLimitBuckets = new Map<string, Bucket>());
 
 function limparAntigos(now: number) {
   if (buckets.size < 2_000) return;
@@ -65,18 +65,78 @@ export function chaveLogin(email: string, ip: string): string {
   return `login:${ip}:${email.toLowerCase()}`;
 }
 
-export type LoginRateLimitConfig = {
+/** Bucket adicional por IP: contém ataques distribuídos entre muitos e-mails. */
+export function chaveLoginIp(ip: string): string {
+  return `login-ip:${ip}`;
+}
+
+/** Bucket de PIN por usuário autenticado + colaborador alvo. */
+export function chavePin(usuarioId: string, colaboradorId: string): string {
+  return `pin:${usuarioId}:${colaboradorId}`;
+}
+
+export type RateLimitConfig = {
   maxTentativas: number;
   janelaMs: number;
 };
 
-export function configLimiteLogin(): LoginRateLimitConfig {
-  const max = Number(process.env.AUTH_LOGIN_MAX_ATTEMPTS ?? 8);
-  const minutos = Number(process.env.AUTH_LOGIN_WINDOW_MINUTES ?? 15);
+function minutosParaMs(valor: string | undefined, padrao: number): number {
+  const minutos = Number(valor ?? padrao);
+  return (Number.isFinite(minutos) && minutos > 0 ? minutos : padrao) * 60_000;
+}
+
+function tentativas(valor: string | undefined, padrao: number): number {
+  const max = Number(valor ?? padrao);
+  return Number.isFinite(max) && max > 0 ? Math.floor(max) : padrao;
+}
+
+export function configLimiteLogin(): RateLimitConfig {
   return {
-    maxTentativas: Number.isFinite(max) && max > 0 ? max : 8,
-    janelaMs: (Number.isFinite(minutos) && minutos > 0 ? minutos : 15) * 60_000,
+    maxTentativas: tentativas(process.env.AUTH_LOGIN_MAX_ATTEMPTS, 8),
+    janelaMs: minutosParaMs(process.env.AUTH_LOGIN_WINDOW_MINUTES, 15),
   };
+}
+
+export function configLimiteLoginIp(): RateLimitConfig {
+  return {
+    maxTentativas: tentativas(process.env.AUTH_LOGIN_IP_MAX_ATTEMPTS, 40),
+    janelaMs: minutosParaMs(process.env.AUTH_LOGIN_WINDOW_MINUTES, 15),
+  };
+}
+
+export function configLimitePin(): RateLimitConfig {
+  return {
+    maxTentativas: tentativas(process.env.AUTH_PIN_MAX_ATTEMPTS, 5),
+    janelaMs: minutosParaMs(process.env.AUTH_PIN_WINDOW_MINUTES, 10),
+  };
+}
+
+/**
+ * Consulta vários buckets e retorna o maior tempo de espera. Útil para checar
+ * simultaneamente o limite por e-mail e o limite por IP.
+ */
+export function consultarLimites(
+  chaves: string[],
+  config: RateLimitConfig,
+): { permitido: boolean; retryAfterSeconds: number } {
+  let retryAfterSeconds = 0;
+  let permitido = true;
+
+  for (const chave of chaves) {
+    const resultado = consultarLimite(chave, config.maxTentativas, config.janelaMs);
+    if (!resultado.permitido) permitido = false;
+    retryAfterSeconds = Math.max(retryAfterSeconds, resultado.retryAfterSeconds);
+  }
+
+  return { permitido, retryAfterSeconds };
+}
+
+export function registrarFalhas(chaves: string[], janelaMs: number): void {
+  for (const chave of chaves) registrarFalha(chave, janelaMs);
+}
+
+export function limparLimites(chaves: string[]): void {
+  for (const chave of chaves) limparLimite(chave);
 }
 
 // Mantém o tipo disponível para quem consome os helpers de sessão da API.

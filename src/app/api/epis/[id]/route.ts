@@ -6,6 +6,7 @@ import {
   lerJson,
   respostaErro,
   respostaOk,
+  validarIdRota,
 } from "@/server/http";
 import { epiDetalheSelect } from "@/server/selects";
 import { alterarAtivoEpi, atualizarEpi } from "@/server/services/epis";
@@ -19,7 +20,7 @@ export async function GET(
 ) {
   try {
     await exigirSessaoApi();
-    const { id } = await params;
+    const id = validarIdRota((await params).id);
 
     const epi = await prisma.epi.findUnique({ where: { id }, select: epiDetalheSelect });
     if (!epi) {
@@ -38,7 +39,7 @@ export async function PATCH(
 ) {
   try {
     const session = await exigirSessaoApi();
-    const { id } = await params;
+    const id = validarIdRota((await params).id);
     const body = await lerJson(request);
     const input = epiUpdateSchema.parse(body);
     // Situação (ativo/inativo) é uma decisão administrativa.
@@ -57,7 +58,7 @@ export async function DELETE(
   try {
     const session = await exigirSessaoApi();
     exigirAdmin(session);
-    const { id } = await params;
+    const id = validarIdRota((await params).id);
     const epi = await alterarAtivoEpi(id, false);
 
     return respostaOk({

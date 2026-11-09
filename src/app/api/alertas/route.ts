@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { exigirSessaoApi, respostaErro, respostaOk } from "@/server/http";
+import {
+  exigirSessaoApi,
+  parametroUnico,
+  respostaErro,
+  respostaOk,
+  validarParametrosUnicos,
+} from "@/server/http";
 import {
   listarCasAVencer,
   listarEstoqueBaixo,
@@ -9,15 +15,17 @@ import {
 export const dynamic = "force-dynamic";
 
 const diasSchema = z.coerce.number().int().min(0).max(365).default(15);
-const janelaSchema = z.union([z.literal(30), z.literal(60), z.literal(90)]).catch(90);
+const janelaSchema = z.union([z.literal(30), z.literal(60), z.literal(90)]);
 
 export async function GET(request: Request) {
   try {
     await exigirSessaoApi();
 
     const { searchParams } = new URL(request.url);
-    const dias = diasSchema.parse(searchParams.get("dias") ?? undefined);
-    const janela = janelaSchema.parse(Number(searchParams.get("janela") ?? 90));
+    validarParametrosUnicos(searchParams, ["dias", "janela"]);
+
+    const dias = diasSchema.parse(parametroUnico(searchParams, "dias") ?? undefined);
+    const janela = janelaSchema.parse(Number(parametroUnico(searchParams, "janela") ?? 90));
 
     const [estoqueBaixo, caVencimento, trocas] = await Promise.all([
       listarEstoqueBaixo(),

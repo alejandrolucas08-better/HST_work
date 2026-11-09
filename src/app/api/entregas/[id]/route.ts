@@ -1,4 +1,4 @@
-import { exigirSessaoApi, respostaErro, respostaOk } from "@/server/http";
+import { exigirSessaoApi, respostaErro, respostaOk, validarIdRota } from "@/server/http";
 import { obterEntrega } from "@/server/services/entregas";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +9,7 @@ export async function GET(
 ) {
   try {
     await exigirSessaoApi();
-    const { id } = await params;
+    const id = validarIdRota((await params).id);
     const entrega = await obterEntrega(id);
     return respostaOk(entrega);
   } catch (error) {

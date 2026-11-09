@@ -1,28 +1,40 @@
-import type { Prisma, StatusColaborador } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { normalizarCpf } from "@/lib/cpf";
 import { prisma } from "@/lib/prisma";
-import { colaboradorSchema } from "@/lib/validations";
-import { exigirAdmin, exigirSessaoApi, lerJson, respostaErro, respostaOk } from "@/server/http";
+import {
+  colaboradorSchema,
+  statusColaboradorSchema,
+  termoBuscaSchema,
+} from "@/lib/validations";
+import {
+  exigirAdmin,
+  exigirSessaoApi,
+  lerJson,
+  parametroUnico,
+  respostaErro,
+  respostaOk,
+  validarParametrosUnicos,
+} from "@/server/http";
 import { colaboradorResumoSelect, semSegredo } from "@/server/selects";
 import { criarColaborador } from "@/server/services/colaboradores";
 
 export const dynamic = "force-dynamic";
-
-const statusValidos = ["ATIVO", "INATIVO", "DESLIGADO"];
 
 export async function GET(request: Request) {
   try {
     await exigirSessaoApi();
 
     const { searchParams } = new URL(request.url);
-    const q = searchParams.get("q")?.trim();
-    const status = searchParams.get("status");
+    validarParametrosUnicos(searchParams, ["q", "status"]);
+
+    const q = termoBuscaSchema.parse(parametroUnico(searchParams, "q"));
+    const statusBruto = parametroUnico(searchParams, "status");
+    const status =
+      statusBruto === undefined ? undefined : statusColaboradorSchema.parse(statusBruto);
     const cpf = q ? normalizarCpf(q) : "";
 
     const where: Prisma.ColaboradorWhereInput = {};
-    if (status && statusValidos.includes(status)) {
-      where.status = status as StatusColaborador;
-    }
+    if (status) where.status = status;
     if (q) {
       where.OR = [
         { nome: { contains: q, mode: "insensitive" } },

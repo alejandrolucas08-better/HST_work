@@ -6,6 +6,7 @@ import {
   lerJson,
   respostaErro,
   respostaOk,
+  validarIdRota,
 } from "@/server/http";
 import { colaboradorDetalheSelect, semSegredo } from "@/server/selects";
 import {
@@ -22,7 +23,7 @@ export async function GET(
 ) {
   try {
     await exigirSessaoApi();
-    const { id } = await params;
+    const id = validarIdRota((await params).id);
 
     const colaborador = await prisma.colaborador.findUnique({
       where: { id },
@@ -35,7 +36,16 @@ export async function GET(
       });
     }
 
-    return respostaOk(colaborador);
+    // Nunca devolve a assinatura Base64 na listagem/detalhe: apenas o indicador.
+    const resposta = {
+      ...colaborador,
+      entregas: colaborador.entregas.map(({ assinaturaDigital, ...entrega }) => ({
+        ...entrega,
+        temAssinatura: Boolean(assinaturaDigital),
+      })),
+    };
+
+    return respostaOk(resposta);
   } catch (error) {
     return respostaErro(error);
   }
@@ -47,7 +57,7 @@ export async function PATCH(
 ) {
   try {
     const session = await exigirSessaoApi();
-    const { id } = await params;
+    const id = validarIdRota((await params).id);
     const body = await lerJson(request);
     const input = colaboradorUpdateSchema.parse(body);
     // Somente ADMIN pode desligar um colaborador (preserva regra das Server Actions).
@@ -66,7 +76,7 @@ export async function DELETE(
   try {
     const session = await exigirSessaoApi();
     exigirAdmin(session);
-    const { id } = await params;
+    const id = validarIdRota((await params).id);
     const colaborador = await arquivarColaborador(id);
 
     return respostaOk({

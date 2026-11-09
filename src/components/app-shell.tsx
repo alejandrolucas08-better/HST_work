@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ClipboardCheck,
+  FileChartColumn,
   HardHat,
   LayoutDashboard,
   LogOut,
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/entregas", label: "Entregas", icon: ClipboardCheck },
   { href: "/epis", label: "EPIs", icon: HardHat },
   { href: "/colaboradores", label: "Colaboradores", icon: Users },
+  { href: "/relatorios", label: "Relatórios", icon: FileChartColumn },
 ];
 
 function Brand({ compact = false }: { compact?: boolean }) {

@@ -4,6 +4,7 @@ import {
   lerJsonOpcional,
   respostaErro,
   respostaOk,
+  validarIdRota,
 } from "@/server/http";
 import { registrarDevolucao } from "@/server/services/entregas";
 
@@ -15,7 +16,7 @@ export async function POST(
 ) {
   try {
     const session = await exigirSessaoApi();
-    const { id } = await params;
+    const id = validarIdRota((await params).id);
     const body = await lerJsonOpcional(request);
     const input = devolucaoSchema.parse(body);
     const entrega = await registrarDevolucao(id, input.reintegrarEstoque, session);

@@ -26,7 +26,18 @@ export const colaboradorDetalheSelect = {
   updatedAt: true,
   entregas: {
     orderBy: { dataEntrega: "desc" },
-    include: {
+    select: {
+      id: true,
+      quantidade: true,
+      dataEntrega: true,
+      dataPrevistaTroca: true,
+      statusDevolucao: true,
+      pinValidado: true,
+      assinaturaDigital: true,
+      observacoes: true,
+      epiNomeEntrega: true,
+      numeroCAEntrega: true,
+      validadeCAEntrega: true,
       epi: { select: { id: true, nome: true, numeroCA: true } },
       usuario: { select: { id: true, nome: true } },
     },
@@ -63,7 +74,17 @@ export const epiDetalheSelect = {
   entregas: {
     orderBy: { dataEntrega: "desc" },
     take: 50,
-    include: {
+    select: {
+      id: true,
+      quantidade: true,
+      dataEntrega: true,
+      dataPrevistaTroca: true,
+      statusDevolucao: true,
+      pinValidado: true,
+      observacoes: true,
+      epiNomeEntrega: true,
+      numeroCAEntrega: true,
+      validadeCAEntrega: true,
       colaborador: { select: { id: true, nome: true, setor: true } },
     },
   },

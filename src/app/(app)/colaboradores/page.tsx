@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requireSession } from "@/lib/auth";
 import { formatarCpf } from "@/lib/cpf";
 import { iniciais } from "@/lib/format";
+import { termoBuscaSchema } from "@/lib/validations";
 import { getColaboradores } from "@/server/queries/colaboradores";
 
 export const metadata = { title: "Colaboradores" };
@@ -22,10 +23,11 @@ export const metadata = { title: "Colaboradores" };
 export default async function ColaboradoresPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string | string[] }>;
 }) {
   const [{ q }, session] = await Promise.all([searchParams, requireSession()]);
-  const colaboradores = await getColaboradores(q);
+  const termo = termoBuscaSchema.safeParse(Array.isArray(q) ? q[0] : q);
+  const colaboradores = await getColaboradores(termo.success ? termo.data : undefined);
   const isAdmin = session.perfil === "ADMIN";
 
   return (
@@ -40,7 +42,7 @@ export default async function ColaboradoresPage({
         <div className="flex flex-col gap-3 border-b border-line p-4 sm:flex-row sm:items-center sm:justify-between">
           <SearchForm
             action="/colaboradores"
-            defaultValue={q}
+            defaultValue={termo.success ? termo.data : undefined}
             placeholder="Buscar por nome, CPF, cargo ou setor..."
           />
           <Badge tone="slate">

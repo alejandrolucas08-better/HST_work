@@ -7,6 +7,8 @@ export class DomainError extends Error {
   readonly code: string;
   readonly status: number;
   readonly fieldErrors?: Record<string, string[] | undefined>;
+  /** Cabeçalhos extras (ex.: Retry-After em respostas 429). */
+  readonly headers?: Record<string, string>;
 
   constructor(
     code: string,
@@ -14,6 +16,7 @@ export class DomainError extends Error {
     options: {
       status?: number;
       fieldErrors?: Record<string, string[] | undefined>;
+      headers?: Record<string, string>;
     } = {},
   ) {
     super(message);
@@ -21,6 +24,7 @@ export class DomainError extends Error {
     this.code = code;
     this.status = options.status ?? 400;
     this.fieldErrors = options.fieldErrors;
+    this.headers = options.headers;
     Object.setPrototypeOf(this, DomainError.prototype);
   }
 }

@@ -146,6 +146,7 @@ model Entrega {
   @@index([epiId])
   @@index([dataPrevistaTroca, statusDevolucao])
   @@index([dataEntrega])
+  @@index([validadeCAEntrega])
   @@map("entregas")
 }
 

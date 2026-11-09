@@ -1,27 +1,32 @@
-import { z } from "zod";
-import { entregaSchema } from "@/lib/validations";
-import { exigirSessaoApi, lerJson, respostaErro, respostaOk } from "@/server/http";
+import { entregaSchema, paginacaoSchema, statusDevolucaoSchema } from "@/lib/validations";
+import {
+  exigirSessaoApi,
+  lerJson,
+  parametroUnico,
+  respostaErro,
+  respostaOk,
+  validarParametrosUnicos,
+} from "@/server/http";
 import { getEntregas } from "@/server/queries/entregas";
 import { registrarEntrega } from "@/server/services/entregas";
 
 export const dynamic = "force-dynamic";
-
-const paginacaoSchema = z.object({
-  limit: z.coerce.number().int().min(1).max(500).default(100),
-  offset: z.coerce.number().int().min(0).default(0),
-});
 
 export async function GET(request: Request) {
   try {
     await exigirSessaoApi();
 
     const { searchParams } = new URL(request.url);
-    const paginacao = paginacaoSchema.parse({
-      limit: searchParams.get("limit") ?? undefined,
-      offset: searchParams.get("offset") ?? undefined,
-    });
+    validarParametrosUnicos(searchParams, ["limit", "offset", "status"]);
 
-    const entregas = await getEntregas(searchParams.get("status") ?? undefined, paginacao);
+    const paginacao = paginacaoSchema.parse({
+      limit: parametroUnico(searchParams, "limit") ?? undefined,
+      offset: parametroUnico(searchParams, "offset") ?? undefined,
+    });
+    const statusBruto = parametroUnico(searchParams, "status");
+    const status = statusBruto === undefined ? undefined : statusDevolucaoSchema.parse(statusBruto);
+
+    const entregas = await getEntregas(status, paginacao);
     return respostaOk(entregas);
   } catch (error) {
     return respostaErro(error);
