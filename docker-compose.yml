@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hst-epi-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hst
+      POSTGRES_PASSWORD: hst
+      POSTGRES_DB: hst_epi
+    ports:
+      - "5432:5432"
+    volumes:
+      - hst_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hst -d hst_epi"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  hst_pgdata:

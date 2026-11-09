@@ -1,0 +1,380 @@
+@import "tailwindcss";
+
+/*
+ * ---------------------------------------------------------------------------
+ * Design tokens — HST EPI
+ * ---------------------------------------------------------------------------
+ * A interface industrial usa três temas. Em vez de espalhar cores fixas pelos
+ * componentes, cada tema troca apenas as variáveis abaixo. Os utilitários do
+ * Tailwind (bg-surface, text-muted, border-line...) consomem esses tokens via
+ * @theme inline, então a troca de tema é instantânea e não exige re-render.
+ */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  --canvas: #eef2f7;
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --surface-sunken: #f1f5f9;
+
+  --fg: #0f172a;
+  --fg-soft: #334155;
+  --muted: #64748b;
+  --subtle: #94a3b8;
+
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
+
+  --brand: #059669;
+  --brand-hover: #047857;
+  --brand-active: #065f46;
+  --brand-contrast: #ffffff;
+  --brand-soft: #ecfdf5;
+  --brand-soft-strong: #d1fae5;
+  --brand-strong: #047857;
+  --brand-border: #a7f3d0;
+
+  --danger: #e11d48;
+  --danger-hover: #be123c;
+  --danger-contrast: #ffffff;
+  --danger-soft: #fff1f2;
+  --danger-soft-strong: #ffe4e6;
+  --danger-strong: #9f1239;
+  --danger-border: #fecdd3;
+
+  --warning: #d97706;
+  --warning-soft: #fffbeb;
+  --warning-soft-strong: #fef3c7;
+  --warning-strong: #92400e;
+  --warning-border: #fde68a;
+
+  --info: #0284c7;
+  --info-soft: #f0f9ff;
+  --info-strong: #075985;
+  --info-border: #bae6fd;
+
+  --accent: #7c3aed;
+  --accent-soft: #f5f3ff;
+  --accent-strong: #5b21b6;
+  --accent-border: #ddd6fe;
+
+  --inverse: #020617;
+  --inverse-soft: #0f172a;
+  --inverse-fg: #f8fafc;
+  --inverse-muted: #94a3b8;
+
+  --overlay: rgb(2 6 23 / 0.55);
+  --glass: rgb(255 255 255 / 0.82);
+  --glass-border: rgb(255 255 255 / 0.65);
+  --ring: #10b981;
+  --shadow-color: 15 23 42;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --canvas: #020617;
+  --surface: #0b1220;
+  --surface-muted: #111c2e;
+  --surface-sunken: #0f172a;
+
+  --fg: #f1f5f9;
+  --fg-soft: #e2e8f0;
+  --muted: #94a3b8;
+  --subtle: #64748b;
+
+  --line: #1e293b;
+  --line-strong: #334155;
+
+  --brand: #10b981;
+  --brand-hover: #34d399;
+  --brand-active: #059669;
+  --brand-contrast: #022c22;
+  --brand-soft: #052e22;
+  --brand-soft-strong: #064e3b;
+  --brand-strong: #6ee7b7;
+  --brand-border: #065f46;
+
+  --danger: #fb7185;
+  --danger-hover: #f43f5e;
+  --danger-contrast: #450a0a;
+  --danger-soft: #3f0d1a;
+  --danger-soft-strong: #4c0519;
+  --danger-strong: #fecdd3;
+  --danger-border: #881337;
+
+  --warning: #fbbf24;
+  --warning-soft: #3a2a05;
+  --warning-soft-strong: #451a03;
+  --warning-strong: #fde68a;
+  --warning-border: #78350f;
+
+  --info: #38bdf8;
+  --info-soft: #082f49;
+  --info-strong: #bae6fd;
+  --info-border: #0c4a6e;
+
+  --accent: #a78bfa;
+  --accent-soft: #2e1065;
+  --accent-strong: #ddd6fe;
+  --accent-border: #4c1d95;
+
+  --inverse: #020617;
+  --inverse-soft: #0b1220;
+  --inverse-fg: #f8fafc;
+  --inverse-muted: #94a3b8;
+
+  --overlay: rgb(0 0 0 / 0.72);
+  --glass: rgb(15 23 42 / 0.78);
+  --glass-border: rgb(148 163 184 / 0.2);
+  --ring: #34d399;
+  --shadow-color: 0 0 0;
+}
+
+/*
+ * Alto contraste industrial: fundo preto puro, texto branco e bordas amarelas
+ * espessas. Pensado para ambientes com luz solar direta ou baixa iluminação.
+ */
+[data-theme="high-contrast"] {
+  color-scheme: dark;
+
+  --canvas: #000000;
+  --surface: #000000;
+  --surface-muted: #0a0a0a;
+  --surface-sunken: #111111;
+
+  --fg: #ffffff;
+  --fg-soft: #ffffff;
+  --muted: #e5e5e5;
+  --subtle: #d4d4d4;
+
+  --line: #facc15;
+  --line-strong: #ffffff;
+
+  --brand: #facc15;
+  --brand-hover: #fde047;
+  --brand-active: #eab308;
+  --brand-contrast: #000000;
+  --brand-soft: #1c1917;
+  --brand-soft-strong: #292524;
+  --brand-strong: #fde047;
+  --brand-border: #facc15;
+
+  --danger: #ff5c5c;
+  --danger-hover: #ff8080;
+  --danger-contrast: #000000;
+  --danger-soft: #260000;
+  --danger-soft-strong: #3a0000;
+  --danger-strong: #ff9b9b;
+  --danger-border: #ff5c5c;
+
+  --warning: #fbbf24;
+  --warning-soft: #1f1500;
+  --warning-soft-strong: #2a1d00;
+  --warning-strong: #fde68a;
+  --warning-border: #fbbf24;
+
+  --info: #7dd3fc;
+  --info-soft: #001a26;
+  --info-strong: #bae6fd;
+  --info-border: #7dd3fc;
+
+  --accent: #e9d5ff;
+  --accent-soft: #1e0b33;
+  --accent-strong: #f3e8ff;
+  --accent-border: #e9d5ff;
+
+  --inverse: #000000;
+  --inverse-soft: #0a0a0a;
+  --inverse-fg: #ffffff;
+  --inverse-muted: #e5e5e5;
+
+  --overlay: rgb(0 0 0 / 0.88);
+  --glass: rgb(0 0 0 / 0.94);
+  --glass-border: #facc15;
+  --ring: #facc15;
+  --shadow-color: 0 0 0;
+}
+
+@theme inline {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Noto Sans", sans-serif;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-sunken: var(--surface-sunken);
+
+  --color-fg: var(--fg);
+  --color-fg-soft: var(--fg-soft);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-active: var(--brand-active);
+  --color-brand-contrast: var(--brand-contrast);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-soft-strong: var(--brand-soft-strong);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-border: var(--brand-border);
+
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-contrast: var(--danger-contrast);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-soft-strong: var(--danger-soft-strong);
+  --color-danger-strong: var(--danger-strong);
+  --color-danger-border: var(--danger-border);
+
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-soft-strong: var(--warning-soft-strong);
+  --color-warning-strong: var(--warning-strong);
+  --color-warning-border: var(--warning-border);
+
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-strong: var(--info-strong);
+  --color-info-border: var(--info-border);
+
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-border: var(--accent-border);
+
+  --color-inverse: var(--inverse);
+  --color-inverse-soft: var(--inverse-soft);
+  --color-inverse-fg: var(--inverse-fg);
+  --color-inverse-muted: var(--inverse-muted);
+
+  --color-overlay: var(--overlay);
+  --color-glass: var(--glass);
+  --color-glass-border: var(--glass-border);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-fg antialiased;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    @apply bg-brand-soft-strong text-brand-strong;
+  }
+
+  /* Alvos de toque confortáveis em tablets; evita zoom automático no iOS. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  @media (min-width: 768px) {
+    input,
+    select,
+    textarea {
+      font-size: inherit;
+    }
+  }
+
+  /* Rolagem discreta, mas visível o suficiente para operação com luvas. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 999px;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .glass-panel {
+    background: var(--glass);
+    border-color: var(--glass-border);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+  }
+
+  .touch-target {
+    min-height: 48px;
+    min-width: 48px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Alto contraste: reforça bordas e remove sombras decorativas.
+ * Regras fora de @layer vencem os utilitários do Tailwind na cascata.
+ * ------------------------------------------------------------------------ */
+[data-theme="high-contrast"] :where(.border) {
+  border-width: 2px;
+  border-color: var(--line);
+}
+
+[data-theme="high-contrast"] :where(.border-b) {
+  border-bottom-width: 2px;
+}
+
+[data-theme="high-contrast"] :where(.border-t) {
+  border-top-width: 2px;
+}
+
+[data-theme="high-contrast"] :where(.shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl) {
+  box-shadow: none;
+}
+
+[data-theme="high-contrast"] :where(.bg-brand, .bg-brand-hover, .bg-brand-active) {
+  color: var(--brand-contrast);
+}
+
+/* No alto contraste o vermelho é claro; texto preto mantém a legibilidade. */
+[data-theme="high-contrast"] :where(.bg-danger, .bg-danger-hover) {
+  color: #000000;
+}
+
+[data-theme="high-contrast"] :where(button, a, input, select, textarea):focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Respeita a preferência do sistema por menos movimento. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,172 @@
+// =============================================================================
+// HST EPI — Schema Prisma (PostgreSQL)
+// =============================================================================
+// Decisões principais:
+// - IDs UUID evitam colisão e enumerabilidade em URLs/APIs.
+// - CPF é persistido apenas com 11 dígitos (normalizado) e é único.
+// - Senhas e PINs usam hash bcrypt; o texto puro nunca é persistido.
+// - `onDelete: Restrict` preserva o histórico de entregas (dados de SST/auditoria).
+// - Campos @db.Date representam datas sem hora (validade de CA e troca prevista),
+//   evitando deslocamentos por fuso horário.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum PerfilUsuario {
+  ADMIN
+  ALMOXARIFE
+}
+
+enum StatusColaborador {
+  ATIVO
+  INATIVO
+  DESLIGADO
+}
+
+enum StatusDevolucao {
+  EM_USO
+  DEVOLVIDO
+  TROCADO
+  PERDIDO
+}
+
+enum TipoMovimentacao {
+  ENTRADA
+  SAIDA
+  DEVOLUCAO
+  AJUSTE
+}
+
+// -----------------------------------------------------------------------------
+// Autenticação do almoxarife / administrador
+// -----------------------------------------------------------------------------
+model Usuario {
+  id             String        @id @default(uuid()) @db.Uuid
+  nome           String        @db.VarChar(120)
+  email          String        @unique @db.VarChar(160)
+  senhaHash      String        @db.VarChar(255)
+  perfil         PerfilUsuario @default(ALMOXARIFE)
+  ativo          Boolean       @default(true)
+  ultimoAcessoEm DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  entregas      Entrega[]
+  movimentacoes MovimentacaoEstoque[]
+
+  @@index([ativo])
+  @@map("usuarios")
+}
+
+// -----------------------------------------------------------------------------
+// Colaborador que recebe EPIs
+// -----------------------------------------------------------------------------
+model Colaborador {
+  id        String            @id @default(uuid()) @db.Uuid
+  nome      String            @db.VarChar(120)
+  cpf       String            @unique @db.VarChar(11)
+  cargo     String            @db.VarChar(80)
+  setor     String            @db.VarChar(80)
+  status    StatusColaborador @default(ATIVO)
+  pinHash   String            @db.VarChar(255)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  entregas Entrega[]
+
+  @@index([nome])
+  @@index([setor])
+  @@index([status])
+  @@map("colaboradores")
+}
+
+// -----------------------------------------------------------------------------
+// EPI e controle do Certificado de Aprovação (CA)
+// -----------------------------------------------------------------------------
+model Epi {
+  id                  String   @id @default(uuid()) @db.Uuid
+  nome                String   @db.VarChar(120)
+  numeroCA            String   @unique @db.VarChar(40)
+  dataValidadeCA      DateTime @db.Date
+  quantidadeEstoque   Int      @default(0)
+  estoqueMinimo       Int      @default(0)
+  intervaloTrocaDias  Int      @default(90)
+  ativo               Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  entregas      Entrega[]
+  movimentacoes MovimentacaoEstoque[]
+
+  @@index([dataValidadeCA])
+  @@index([ativo])
+  @@map("epis")
+}
+
+// -----------------------------------------------------------------------------
+// Entrega digital de EPI (com PIN e assinatura opcional)
+// -----------------------------------------------------------------------------
+model Entrega {
+  id                  String          @id @default(uuid()) @db.Uuid
+  colaboradorId       String          @db.Uuid
+  epiId               String          @db.Uuid
+  usuarioId           String          @db.Uuid
+  quantidade          Int             @default(1)
+  dataEntrega         DateTime        @default(now())
+  dataPrevistaTroca   DateTime        @db.Date
+  assinaturaDigital   String?         @db.Text
+  pinValidado         Boolean         @default(false)
+  // ---------------------------------------------------------------------------
+  // Snapshots de auditoria: preservam os dados do EPI/CA exatamente como estavam
+  // no momento da entrega. Se o cadastro do EPI mudar de nome, número de CA ou
+  // validade depois, a ficha e o comprovante continuam fiéis ao ato original.
+  // ---------------------------------------------------------------------------
+  epiNomeEntrega      String          @db.VarChar(120)
+  numeroCAEntrega     String          @db.VarChar(40)
+  validadeCAEntrega   DateTime        @db.Date
+  statusDevolucao     StatusDevolucao @default(EM_USO)
+  observacoes         String?         @db.Text
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  colaborador   Colaborador  @relation(fields: [colaboradorId], references: [id], onDelete: Restrict)
+  epi           Epi          @relation(fields: [epiId], references: [id], onDelete: Restrict)
+  usuario       Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  movimentacoes MovimentacaoEstoque[]
+
+  @@index([colaboradorId, statusDevolucao])
+  @@index([epiId])
+  @@index([dataPrevistaTroca, statusDevolucao])
+  @@index([dataEntrega])
+  @@map("entregas")
+}
+
+// -----------------------------------------------------------------------------
+// Auditoria de estoque: toda alteração de saldo gera um registro imutável.
+// -----------------------------------------------------------------------------
+model MovimentacaoEstoque {
+  id         String           @id @default(uuid()) @db.Uuid
+  epiId      String           @db.Uuid
+  usuarioId  String           @db.Uuid
+  entregaId  String?          @db.Uuid
+  tipo       TipoMovimentacao
+  quantidade Int
+  motivo     String?          @db.VarChar(255)
+  createdAt  DateTime         @default(now())
+
+  epi     Epi      @relation(fields: [epiId], references: [id], onDelete: Restrict)
+  usuario Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  entrega Entrega? @relation(fields: [entregaId], references: [id], onDelete: SetNull)
+
+  @@index([epiId, createdAt])
+  @@index([entregaId])
+  @@map("movimentacoes_estoque")
+}
