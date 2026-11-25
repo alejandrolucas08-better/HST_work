@@ -7,7 +7,7 @@
     "node": ">=20.9.0"
   },
   "scripts": {
-    "dev": "npm run db:deploy && npm run db:seed && next dev",
+    "dev": "npm run db:deploy && next dev",
     "build": "prisma generate && next build",
     "postbuild": "npm run security:secrets",
     "start": "next start",

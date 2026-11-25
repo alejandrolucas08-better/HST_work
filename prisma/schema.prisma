@@ -16,8 +16,8 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DB_DATABASE_URL")
-  directUrl = env("DB_DATABASE_URL")
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum PerfilUsuario {

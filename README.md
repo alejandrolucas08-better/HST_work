@@ -386,11 +386,79 @@ o cliente nunca é a única barreira de autorização.
 3. Build command: `npm run build` (já executa `prisma generate`).
 4. Após o primeiro deploy, rode o seed uma única vez ou crie o usuário admin.
 
-### Render / Railway
+### Railway (passo a passo)
 
-- Web Service com `npm run build` e `npm start`.
-- Defina `PORT` conforme o provedor e as mesmas variáveis de ambiente.
-- Use `/api/health` como health check.
+1. **Publique o código.** Faça commit e push da branch `main` no GitHub. O arquivo
+   `.env` é ignorado pelo Git — configure os segredos direto no Railway.
+
+2. **Crie o projeto.** No Railway: **New Project → Deploy from GitHub repo** →
+   selecione o repositório `HST_work` e a branch `main`.
+
+3. **Crie o banco.** No projeto: **New → Database → Add PostgreSQL**. O serviço
+   será chamado `Postgres` (se renomear, ajuste a referência no passo 4).
+
+4. **Configure as variáveis** na aba *Variables* do serviço da aplicação:
+
+   | Variável | Valor |
+   | --- | --- |
+   | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (injetada pelo banco) |
+   | `DIRECT_URL` | `${{Postgres.DATABASE_URL}}` (usada nas migrações) |
+   | `AUTH_SECRET` | gere com `openssl rand -base64 32` (mín. 32 caracteres) |
+   | `APP_URL` | `https://<seu-servico>.up.railway.app` ou domínio customizado |
+   | `NEXT_PUBLIC_SHOW_DEMO_CREDENTIALS` | `false` |
+   | `COMPANY_*` | dados reais da empresa nos PDFs (opcional, recomendado) |
+
+   Defina `APP_URL` **antes do build** para que a lista de origens permitidas do
+   CORS já seja gerada corretamente (se trocar o domínio depois, faça outro
+   deploy). Se não houver domínio público, em *Settings → Networking* clique em
+   **Generate Domain**. Não é necessário definir `NODE_ENV`: o Next.js já usa
+   `production` no build e no start.
+
+5. **Build.** Em *Settings → Build*, mantenha o Railpack e defina:
+   - **Build Command:** `npm run build` (executa `prisma generate`, o build do
+     Next e a verificação de segredos no bundle).
+
+6. **Deploy.** Em *Settings → Deploy*, defina:
+   - **Pre-Deploy Command:** `npm run db:deploy` (aplica as migrações com acesso
+     à rede privada do Railway antes de iniciar o app).
+   - **Start Command:** `npm start` (o `next start` usa a porta `PORT` injetada).
+   - **Healthcheck Path:** `/api/health`
+   - **Healthcheck Timeout:** `300`
+   - **Restart Policy:** `On Failure` (opcional).
+
+   > Em serviços novos, prefira configurar pelo dashboard: `railway.json` /
+   > `railway.toml` (Config as Code) estão depreciados no Railway.
+
+7. **Dispare o deploy** (automático a cada push ou manual em **Deploy → Deploy Now**)
+   e acompanhe os logs até o healthcheck ficar verde.
+
+8. **Popule o banco uma única vez.** Antes, defina `SEED_ADMIN_EMAIL`,
+   `SEED_ADMIN_PASSWORD`, `SEED_ALMOXARIFE_EMAIL` e `SEED_ALMOXARIFE_PASSWORD`
+   com valores fortes nas variáveis do serviço (evite as credenciais padrão).
+   Depois, com a CLI do Railway:
+
+   ```bash
+   npm i -g @railway/cli
+   railway login
+   railway link
+   railway run npm run db:seed
+   ```
+
+   O seed **altera registros existentes**; rode apenas em banco vazio. Depois do
+   primeiro acesso, troque as senhas padrão de administrador/almoxarife.
+
+9. **Valide:** `curl https://<seu-dominio>/api/health` deve responder
+   `{"status":"ok","database":"up",...}`. Acesse `/login` e teste o usuário criado.
+
+**Problemas comuns**
+
+| Sintoma | Causa provável |
+| --- | --- |
+| `Environment variable not found: DATABASE_URL` | Variáveis do passo 4 não foram definidas no serviço web |
+| Healthcheck `503` | PostgreSQL indisponível ou `DATABASE_URL`/`DIRECT_URL` incorretas |
+| `403 ORIGEM_NAO_PERMITIDA` nas APIs | `APP_URL` diferente da origem usada no navegador |
+| `AUTH_SECRET ausente ou inválido` | Segredo com menos de 32 caracteres |
+| Sessão some após o login | App sem HTTPS (o cookie de produção é `secure`) |
 
 ## Segurança
 
