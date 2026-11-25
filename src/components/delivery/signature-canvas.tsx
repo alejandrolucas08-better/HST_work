@@ -1,11 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
 import { Eraser, PenLine, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Point = { x: number; y: number };
+
+/** Mantém o fundo branco também nos pixels exportados para PNG. */
+function fillBackground(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
+}
 
 /**
  * Quadro de assinatura para tablet.
@@ -43,16 +51,15 @@ export function SignatureCanvas({
   const [strokeWidth, setStrokeWidth] = useState(2.5);
   const [hasInk, setHasInk] = useState(false);
 
-  /** Reaplica configuração do contexto (a cor acompanha o tema atual). */
+  /** Reaplica a configuração do traço, independente do tema. */
   const configureContext = useCallback((canvas: HTMLCanvasElement) => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
-    const color = getComputedStyle(canvas).color || "#0f172a";
     ctx.lineWidth = strokeWidthRef.current;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
+    ctx.strokeStyle = "#000000";
+    ctx.fillStyle = "#000000";
     return ctx;
   }, []);
 
@@ -79,6 +86,7 @@ export function SignatureCanvas({
       if (!ctx) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       configureContext(canvas);
+      fillBackground(ctx, canvas);
 
       if (snapshot) {
         const image = new Image();
@@ -108,10 +116,7 @@ export function SignatureCanvas({
     if (!value) {
       const ctx = canvas.getContext("2d");
       if (ctx) {
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.restore();
+        fillBackground(ctx, canvas);
       }
       drawnValueRef.current = "";
       setHasInk(false);
@@ -124,7 +129,7 @@ export function SignatureCanvas({
       if (!ctx) return;
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      fillBackground(ctx, canvas);
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
       ctx.restore();
       drawnValueRef.current = value;
@@ -194,7 +199,7 @@ export function SignatureCanvas({
 
     if (!hasInk && canvas.width === 0) return;
 
-    // PNG transparente em Base64; o servidor valida o prefixo data:image/.
+    // PNG com fundo branco e tinta preta em Base64.
     const dataUrl = canvas.toDataURL("image/png");
     drawnValueRef.current = dataUrl;
     onChange(dataUrl);
@@ -206,10 +211,7 @@ export function SignatureCanvas({
 
     const ctx = canvas.getContext("2d");
     if (ctx) {
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.restore();
+      fillBackground(ctx, canvas);
     }
 
     drawingRef.current = false;
@@ -264,13 +266,13 @@ export function SignatureCanvas({
 
       <div
         className={cn(
-          "relative overflow-hidden rounded-2xl border-2 border-dashed border-line bg-surface transition",
+          "relative overflow-hidden rounded-2xl border-2 border-dashed border-line bg-white transition",
           disabled && "pointer-events-none opacity-50",
         )}
       >
         <canvas
           ref={canvasRef}
-          className="relative z-10 block h-56 w-full touch-none cursor-crosshair sm:h-64"
+          className="relative z-10 block h-56 w-full touch-none cursor-crosshair bg-white sm:h-64"
           style={{ touchAction: "none" }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -281,13 +283,15 @@ export function SignatureCanvas({
         />
 
         {!hasInk ? (
-          <div className="pointer-events-none absolute inset-0 z-0 flex flex-col items-center justify-center gap-2 text-subtle">
+          <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 text-slate-400">
             <PenLine className="h-7 w-7" />
             <p className="text-sm font-medium">Assine aqui</p>
           </div>
         ) : null}
 
-        <div className="pointer-events-none absolute bottom-8 left-6 right-6 z-0 border-b border-dashed border-line" />
+        {!hasInk ? (
+          <div className="pointer-events-none absolute bottom-8 left-6 right-6 z-20 border-b border-dashed border-slate-300" />
+        ) : null}
       </div>
 
       <p className="text-xs text-muted">
