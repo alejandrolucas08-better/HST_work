@@ -235,13 +235,16 @@ openssl rand -base64 32
 docker compose up -d
 ```
 
-### 5. Migrar, semear e rodar
+### 5. Iniciar a aplicação
 
 ```bash
-npm run db:deploy     # aplica prisma/migrations
-npm run db:seed       # dados de demonstração
 npm run dev
 ```
+
+`npm run dev` aplica as migrações pendentes no banco configurado e inicia o
+servidor. Funciona também com PostgreSQL hospedado, sem Docker. Para popular um
+banco vazio com dados de demonstração, execute `npm run db:seed` **uma única vez**;
+o seed altera registros existentes e não é executado automaticamente.
 
 Acesse <http://localhost:3000>. Para criar uma nova migração durante o
 desenvolvimento, use `npm run db:migrate`.
@@ -250,7 +253,7 @@ desenvolvimento, use `npm run db:migrate`.
 
 | Script | Descrição |
 | --- | --- |
-| `npm run dev` | Servidor de desenvolvimento |
+| `npm run dev` | Aplica migrações pendentes e inicia o servidor de desenvolvimento |
 | `npm run build` | `prisma generate` + build de produção |
 | `npm start` | Servidor de produção |
 | `npm run typecheck` | Verificação TypeScript |
