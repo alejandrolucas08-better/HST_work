@@ -72,10 +72,14 @@ export function startOfUtcMonth(): Date {
 }
 
 /** Diferença em dias de calendário (positiva = futuro). */
-export function daysUntil(date: Date | string): number {
+export function daysUntil(date: Date | string, referenceDate?: Date | string): number {
   const target = typeof date === "string" ? new Date(date) : date;
   const targetUtc = Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), target.getUTCDate());
-  const today = todayUtcDate();
+  const today = referenceDate
+    ? typeof referenceDate === "string"
+      ? new Date(`${referenceDate}T00:00:00.000Z`)
+      : referenceDate
+    : todayUtcDate();
   return Math.round((targetUtc - today.getTime()) / MS_DAY);
 }
 

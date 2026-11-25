@@ -139,7 +139,7 @@ export function DeliveryForm({
 
   const colaborador = colaboradores.find((item) => item.id === values.colaboradorId);
   const epi = epis.find((item) => item.id === values.epiId);
-  const caDias = epi ? daysUntil(epi.dataValidadeCA) : null;
+  const caDias = epi ? daysUntil(epi.dataValidadeCA, hoje) : null;
   const caVencido = caDias !== null && caDias < 0;
   const dataPrevista =
     epi && hoje
@@ -185,7 +185,7 @@ export function DeliveryForm({
   };
 
   const selecionarEpi = (item: DeliveryEpi) => {
-    if (daysUntil(item.dataValidadeCA) < 0 || item.quantidadeEstoque <= 0) return;
+    if (daysUntil(item.dataValidadeCA, hoje) < 0 || item.quantidadeEstoque <= 0) return;
 
     setValue("epiId", item.id, { shouldValidate: true, shouldDirty: true });
     setValue("quantidade", 1, { shouldValidate: true });
@@ -400,7 +400,7 @@ export function DeliveryForm({
             <motion.div layout className="mt-4 grid gap-2.5 sm:grid-cols-2">
               <AnimatePresence initial={false} mode="popLayout">
                 {episFiltrados.map((item) => {
-                  const dias = daysUntil(item.dataValidadeCA);
+                  const dias = daysUntil(item.dataValidadeCA, hoje);
                   const vencido = dias < 0;
                   const semEstoque = item.quantidadeEstoque <= 0;
                   const indisponivel = vencido || semEstoque;

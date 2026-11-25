@@ -87,7 +87,7 @@ export function DeliveryConfirmModal({
   erros,
   onConfirm,
 }: Props) {
-  const diasCA = daysUntil(epi.dataValidadeCA);
+  const diasCA = daysUntil(epi.dataValidadeCA, hoje);
   const dataPrevista = addDaysUtc(new Date(`${hoje}T00:00:00.000Z`), epi.intervaloTrocaDias);
   const estoqueMaximo = Math.max(1, Math.min(epi.quantidadeEstoque, 999));
 
@@ -263,17 +263,10 @@ export function DeliveryConfirmModal({
                     aria-selected={active}
                     onClick={() => onMetodoChange(tab.value)}
                     className={cn(
-                      "relative flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition active:scale-[0.98]",
-                      active ? "text-brand-contrast" : "text-muted hover:text-fg",
+                      "flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition active:scale-[0.98]",
+                      active ? "bg-brand text-brand-contrast" : "text-muted hover:text-fg",
                     )}
                   >
-                    {active ? (
-                      <motion.span
-                        layoutId="delivery-validation-tab"
-                        className="absolute inset-0 -z-10 rounded-xl bg-brand"
-                        transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                      />
-                    ) : null}
                     <Icon className="h-4 w-4" />
                     {tab.label}
                   </button>
